@@ -19,7 +19,9 @@ class UReplicatedTextureComponent : public UActorComponent
 
 public:
 
-	const uint64 maxChunkSize = 1024 * 1; 
+	const static uint64 maxChunkSize = 1024 * 1; // 1kb
+	const static uint64 maxBufferSize = 1024 * 150; // 150kb
+
 
 	static AReplicatedTexturesStorage* textureStorage;
 
@@ -52,9 +54,6 @@ public:
 	bool ReplicateTexrure(UTexture2D* texture, const FString& name);
 
 	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
-	bool ReplicateTexrureFromBuffer(UTexture2D* texture, const TArray<uint8>& buffer, const FString& name);
-
-	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
 	const TArray<FString>& GetLoadedTexturesNames() const;
 
 	// Use to find texture by name, Returns texxture if found and lodaed
@@ -76,7 +75,7 @@ protected:
 
 private:
 
-	UFUNCTION(Server, Reliable)
+	UFUNCTION(Server, Reliable, WithValidation)
 	void replicateTextureServer(const FString& name);
 
 	UFUNCTION(Client, Reliable)

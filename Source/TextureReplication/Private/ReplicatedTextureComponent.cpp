@@ -97,18 +97,6 @@ bool UReplicatedTextureComponent::ReplicateTexrure(UTexture2D* texture, const FS
 	return true;
 }
 
-bool UReplicatedTextureComponent::ReplicateTexrureFromBuffer(UTexture2D* texture, const TArray<uint8>& buffer, const FString& name)
-{
-	if (!shouldReplicateTexture(name)) return false;
-	
-	textureStorage->textureBuffers.Add(name, buffer);
-
-	preReplicateTexture(texture, name);
-	beginReplicateTexture(name);
-
-	return true;
-}
-
 bool UReplicatedTextureComponent::shouldReplicateTexture(const FString& name)
 {
 	if (GetNetMode() == NM_Standalone) return false;
@@ -138,14 +126,19 @@ void UReplicatedTextureComponent::preReplicateTexture(UTexture2D* texture, const
 
 void UReplicatedTextureComponent::beginReplicateTexture(const FString& name)
 {
-	if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
-	{
-		replicateTextureToAll(name);
-	}
-	else
-	{
-		replicateTextureServer(name);
-	}
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [name, this] {
+		compressTexture(name);
+		AsyncTask(ENamedThreads::GameThread, [name, this] {
+			if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
+			{
+				replicateTextureToAll(name);
+			}
+			else
+			{
+				replicateTextureServer(name);
+			}
+		});
+	});
 }
 
 void UReplicatedTextureComponent::postReplicateTexture(UTexture2D* texture, const FString& name)
@@ -179,6 +172,11 @@ void UReplicatedTextureComponent::compressTexture(const FString& name)
 	UE_LOG(LogReplicaetdTexture, Log, TEXT("Texture \"%s\" compressed size = %d"), *name, buffer.Num());
 
 	textureStorage->textureBuffers.Add(name, (TArray<uint8>)buffer);
+}
+
+bool UReplicatedTextureComponent::replicateTextureServer_Validate(const FString& name)
+{
+	return !name.IsEmpty();
 }
 
 void UReplicatedTextureComponent::replicateTextureServer_Implementation(const FString& name)
@@ -216,11 +214,25 @@ bool UReplicatedTextureComponent::replicateChunkServer_Validate(const TArray<uin
 		UE_LOG(LogReplicaetdTexture, Error, TEXT("Recieved buffer with name \"%s\", but it doesn't exist."), *textureName);
 		return false;
 	}
+
+	if (chunk.Num() > maxChunkSize)
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Recieved chunk with size bigger than max"));
+		return false;
+	}
+
+	if (textureStorage->textureBuffers.Find(textureName)->Num() + chunk.Num() > maxBufferSize)
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Buffer is bigger than max"));
+		return false;
+	}
+
 	if (textureStorage->replicatedTextures.Contains(textureName))
 	{
 		UE_LOG(LogReplicaetdTexture, Error, TEXT("Recieved buffer with name \"%s\", but it is already loaded."), *textureName);
 		return false;
 	}
+
 	return true;
 }
 
@@ -257,24 +269,15 @@ void UReplicatedTextureComponent::askChunkOwner_Implementation(const FString& na
 
 bool UReplicatedTextureComponent::askChunkServer_Validate(const FString& name, uint64 begin)
 {
-	return textureStorage->replicatedTextures.Contains(name);
+	if (!textureStorage->textureBuffers.Contains(name)) return false;
+
+	TArray<uint8>* savedBuffer = textureStorage->textureBuffers.Find(name);
+
+	return savedBuffer->IsValidIndex(begin);
 }
 
 void UReplicatedTextureComponent::askChunkServer_Implementation(const FString& name, uint64 begin)
 {
-	if (!textureStorage->textureBuffers.Contains(name))
-	{
-		AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [name, this, begin] {
-			compressTexture(name);
-
-			// After compress finished - repeat request 
-			AsyncTask(ENamedThreads::GameThread, [name, this, begin] {
-				askChunkServer(name, begin);
-			});
-		});
-		return;
-	}
-
 	TArray<uint8> chunk;
 	uint64 left = getChunk(name, begin, chunk);
 	replicateChunkOwner(chunk, left <= 0, name);
