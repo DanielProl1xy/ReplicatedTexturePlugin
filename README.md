@@ -2,7 +2,7 @@
 This plugin provides simple API for replicating texture along the networked players.
 
 ## Overview
-![blueprint overview](Resources\View.png)
+![blueprint overview](\Resources\View.png)
 
 ### Attention
 Replicating textures is quite heavy operation. It loads bandwidth hard enough, so be aware to use it properly, otherwise you're gonna have performace issues.
