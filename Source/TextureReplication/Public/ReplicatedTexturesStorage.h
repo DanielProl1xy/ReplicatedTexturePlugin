@@ -18,9 +18,9 @@ public:
 
 	TMap<FString, TArray<uint8>> textureBuffers;
 
-	// Do not use to find of texture is loaded
-	// Instead use TMap::Contains to optimize
-	// Use only  loadedTexturesNames for iterating existing TMap
+	// Do not use to find if texture is loaded
+	// Instead use TMap::Contains for better performance
+	// Use only  loadedTexturesNames to iterate existing TMap
 	TArray<FString> loadedTexturesNames;
 	
 private:

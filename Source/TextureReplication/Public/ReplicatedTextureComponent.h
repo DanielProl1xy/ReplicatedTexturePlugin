@@ -56,12 +56,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
 	const TArray<FString>& GetLoadedTexturesNames() const;
 
-	// Use to find texture by name, Returns texxture if found and lodaed
+	// Returns texture by name if found and lodaed
 	// Otherwise returns null
 	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
 	const UTexture2D* FindTexture(const FString& name) const;
 
-	// Puases replication only within this component
+	// Pauses replication only within this component
 	// Call it only from server
 	UFUNCTION(BlueprintCallable, NetMulticast, Reliable, Category = "Texture Replication")
 	void SetPauseReplication(bool pause);
@@ -105,7 +105,7 @@ private:
 
 	uint64 getChunk(const FString& name, uint64 begin, TArray<uint8>& chunk) const;
 
-	// Recieve and save chunk as needed, returns true if texture is loaded properly
+	// Recieve and save chunk as needed
 	void recieveChunk(const TArray<uint8>& chunk, bool end, const FString& textureName);
 
 	void replicateTextureToAll(const FString& name);
