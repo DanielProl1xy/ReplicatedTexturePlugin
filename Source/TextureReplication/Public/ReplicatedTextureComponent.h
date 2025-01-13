@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ReplicatedTexturesStorage.h"
-#include "AsyncDecompressTextureTask.h"
 #include "ReplicatedTextureComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTextureReady, const FString&, name, UTexture2D*, texture);

@@ -5,7 +5,6 @@
 #include "ImageUtils.h"
 #include "Compression/OodleDataCompressionUtil.h"
 #include "Kismet/GameplayStatics.h"
-#include "AsyncCompressTextureTask.h"
 
 DEFINE_LOG_CATEGORY(LogReplicaetdTexture);
 
