@@ -5,6 +5,7 @@
 #include "ImageUtils.h"
 #include "Compression/OodleDataCompressionUtil.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogReplicaetdTexture);
 
@@ -16,6 +17,8 @@ UReplicatedTextureComponent::UReplicatedTextureComponent()
 	SetIsReplicated(true);
 	isDownloading = false;
 	chunkReady = true;
+	bClientJobDone = true;
+	bAllJobsDone = true;
 }
 
 void UReplicatedTextureComponent::BeginPlay()
@@ -76,6 +79,13 @@ void UReplicatedTextureComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	}
 }
 
+void UReplicatedTextureComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UReplicatedTextureComponent, bAllJobsDone);
+}
+
+
 void UReplicatedTextureComponent::fetchTextures_Implementation()
 {
 	UE_LOG(LogReplicaetdTexture, Log, TEXT("Fetching textures(%d)")
@@ -90,6 +100,9 @@ void UReplicatedTextureComponent::fetchTextures_Implementation()
 bool UReplicatedTextureComponent::ReplicateTexrure(UTexture2D* texture, const FString& name)
 {
 	if (!shouldReplicateTexture(name)) return false;
+
+	if(GetNetMode() == NM_Client)
+		bAllJobsDone = false;
 
 	preReplicateTexture(texture, name);
 	beginReplicateTexture(name);
@@ -121,7 +134,6 @@ void UReplicatedTextureComponent::preReplicateTexture(UTexture2D* texture, const
 {
 	textureStorage->replicatedTextures.Add(name, texture);
 	textureStorage->loadedTexturesNames.Add(name);
-	ownedTexturesNames.Add(name);
 }
 
 void UReplicatedTextureComponent::beginReplicateTexture(const FString& name)
@@ -156,6 +168,11 @@ void UReplicatedTextureComponent::postReplicateTexture(UTexture2D* texture, cons
 	{
 		replicateTextureToAll(name);
 	}
+
+	if (namedQueue.IsEmpty())
+	{
+		notifyQueueEmtpy();
+	}
 }
 
 
@@ -187,7 +204,8 @@ void UReplicatedTextureComponent::replicateTextureServer_Implementation(const FS
 		return;
 	}
 
-	ownedTexturesNames.Add(name);
+	bAllJobsDone = false;
+
 	namedQueue.Add(name);
 
 	UE_LOG(LogReplicaetdTexture, Log, TEXT("Added texture \"%s\" for replication queue"), *name);
@@ -331,11 +349,11 @@ void UReplicatedTextureComponent::recieveChunk(const TArray<uint8>& chunk, bool 
 				}
 				else
 				{
-					UE_LOG(LogReplicaetdTexture, Warning, TEXT("Couldn't decompress a texture for some reason"));
+					UE_LOG(LogReplicaetdTexture, Error, TEXT("Couldn't decompress a texture for some reason"));
 					textureStorage->textureBuffers.Remove(textureName);
 				}
-			});
 
+			});
 		});
 	}
 }
@@ -355,8 +373,12 @@ void UReplicatedTextureComponent::replicateTextureToAll(const FString& name)
 			player->GetComponentByClass(UReplicatedTextureComponent::StaticClass())
 		);
 
-		if(IsValid(repl))
+		if (IsValid(repl))
+		{
+			repl->bClientJobDone = false;
+			repl->bAllJobsDone = false;
 			repl->replicateTextureOwner(name);
+		}
 	}
 }
 
@@ -381,3 +403,38 @@ const UTexture2D* UReplicatedTextureComponent:: FindTexture(const FString& name)
 		return texture->Get();
 }
 
+void UReplicatedTextureComponent::RepNotifyAllJobDone()
+{
+	if (bAllJobsDone)
+	{
+		UE_LOG(LogReplicaetdTexture, Log, TEXT("All jobs are finished!"));
+		OnAllJobsDone.Broadcast();
+	}
+}
+
+
+void UReplicatedTextureComponent::queueEmtpyServer_Implementation()
+{
+	bClientJobDone = true;
+	bAllJobsDone = namedQueue.IsEmpty();
+	RepNotifyAllJobDone();
+}
+
+void UReplicatedTextureComponent::notifyQueueEmtpy()
+{
+	UE_LOG(LogReplicaetdTexture, Log, TEXT("Local queue is empty!"));
+
+	// Client finished downloading
+	if (GetNetMode() == NM_Client)
+	{
+		queueEmtpyServer();
+		OnQueueEmpty.Broadcast();
+	}
+	// Server finished downloading
+	else
+	{
+		bAllJobsDone = bClientJobDone;
+		OnQueueEmpty.Broadcast();
+		RepNotifyAllJobDone();
+	}
+}

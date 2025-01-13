@@ -8,6 +8,8 @@
 #include "ReplicatedTextureComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTextureReady, const FString&, name, UTexture2D*, texture);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnQueueEmpty);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnAllJobsDone);
 
 DECLARE_LOG_CATEGORY_EXTERN(LogReplicaetdTexture, Log, All);
 
@@ -19,9 +21,8 @@ class UReplicatedTextureComponent : public UActorComponent
 
 public:
 
-	const static uint64 maxChunkSize = 1024 * 1; // 1kb
-	const static uint64 maxBufferSize = 1024 * 150; // 150kb
-
+	const static uint64 maxChunkSize = 1024 * 30; // 30kb
+	const static uint64 maxBufferSize = 1024 * 1024 * 1.5; // 1.5 mb
 
 	static AReplicatedTexturesStorage* textureStorage;
 
@@ -33,17 +34,31 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TArray<FString> namedQueue;
 
+	UPROPERTY(Replicated, VisibleAnywhere, ReplicatedUsing = RepNotifyAllJobDone)
+	bool bAllJobsDone;
+
+	// Valid on the server only
 	UPROPERTY(VisibleAnywhere)
-	TArray<FString> ownedTexturesNames;
+	bool bClientJobDone;
 
 	FString currentDownloadName;
 	bool isDownloading;
 	bool chunkReady;
 
+
 public:
 
+	// Triggered when new texture loaded and decompressed
 	UPROPERTY(BlueprintAssignable)
 	FOnTextureReady OnTextureReady;
+
+	// Triggered when local queue is emtpy
+	UPROPERTY(BlueprintAssignable)
+	FOnQueueEmpty OnQueueEmpty;
+
+	// Triggered when Server and Client jobs are done
+	UPROPERTY(BlueprintAssignable)
+	FOnAllJobsDone OnAllJobsDone;
 
 public:	
 	UReplicatedTextureComponent();
@@ -66,11 +81,19 @@ public:
 	UFUNCTION(BlueprintCallable, NetMulticast, Reliable, Category = "Texture Replication")
 	void SetPauseReplication(bool pause);
 
+	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
+	bool GetAllJobsDone() const { return bAllJobsDone; }
+
+	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
+	bool GetClientJobDone() const { return bClientJobDone; }
+
 public:	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 protected:
 	virtual void BeginPlay() override;
+
+	void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
 
 
 private:
@@ -84,7 +107,6 @@ private:
 	// Accept chunk from owner on server
 	UFUNCTION(Server, Reliable, WithValidation)
 	void replicateChunkServer(const TArray<uint8>& chunk, bool end, const FString& textureName);
-
 
 	// Accept chunk from server on owner
 	UFUNCTION(Client, Reliable)
@@ -101,7 +123,13 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void askChunkServer(const FString& name, uint64 begin);
 
+	UFUNCTION(Server, Reliable)
+	void queueEmtpyServer();
+
 private:
+
+	UFUNCTION()
+	void RepNotifyAllJobDone();
 
 	uint64 getChunk(const FString& name, uint64 begin, TArray<uint8>& chunk) const;
 
@@ -120,9 +148,10 @@ private:
 
 	void compressTexture(const FString& name);
 
+	void notifyQueueEmtpy();
+
 };
 
 
 // TODO: CancelReplicateTexture(name) - Disable replication of this texture 
-// TODO: Async compress/decompress tasks
 
