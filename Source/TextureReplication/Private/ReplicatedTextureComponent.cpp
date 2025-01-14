@@ -136,8 +136,17 @@ void UReplicatedTextureComponent::preReplicateTexture(UTexture2D* texture, const
 void UReplicatedTextureComponent::beginReplicateTexture(const FString& name)
 {
 	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [name, this] {
-		compressTexture(name);
-		AsyncTask(ENamedThreads::GameThread, [name, this] {
+		bool succeed = compressTexture(name);
+		
+		AsyncTask(ENamedThreads::GameThread, [name, this, succeed] {
+			if(!succeed)
+			{
+				// If failed to compress - abord replication
+				textureStorage->replicatedTextures.Remove(name);
+				textureStorage->loadedTexturesNames.RemoveSingleSwap(name);
+				return;
+			}
+
 			if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
 			{
 				replicateTextureToAll(name);
@@ -173,19 +182,29 @@ void UReplicatedTextureComponent::postReplicateTexture(UTexture2D* texture, cons
 }
 
 
-void UReplicatedTextureComponent::compressTexture(const FString& name)
+bool UReplicatedTextureComponent::compressTexture(const FString& name)
 {
 	TObjectPtr<UTexture2D>* texture = textureStorage->replicatedTextures.Find(name);
 
 	FImage image;
-	FImageUtils::GetTexture2DSourceImage(texture->Get(), image);
+	if (!FImageUtils::GetTexture2DSourceImage(texture->Get(), image))
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Couldn't get source image \"%s\""), *name);
+		return false;
+	}
+
 
 	TArray64<uint8> buffer;
-	FImageUtils::CompressImage(buffer, TEXT("png"), image, -5);
+	if (!FImageUtils::CompressImage(buffer, TEXT("png"), image, -5))
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Couldn't compress image \"%s\""), *name);
+		return false;
+	}
 
 	UE_LOG(LogReplicaetdTexture, Log, TEXT("Texture \"%s\" compressed size = %d"), *name, buffer.Num());
 
 	textureStorage->textureBuffers.Add(name, (TArray<uint8>)buffer);
+	return true;
 }
 
 bool UReplicatedTextureComponent::replicateTextureServer_Validate(const FString& name)
@@ -264,19 +283,6 @@ void UReplicatedTextureComponent::replicateChunkOwner_Implementation(const TArra
 
 void UReplicatedTextureComponent::askChunkOwner_Implementation(const FString& name, uint64 begin)
 {
-	if (!textureStorage->textureBuffers.Contains(name))
-	{
-		AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [name, this, begin] {
-			compressTexture(name);
-
-			// After compress finished - repeat request 
-			AsyncTask(ENamedThreads::GameThread, [name, this, begin] {
-				askChunkOwner(name, begin);
-				});
-			});
-		return;
-	}
-
 	TArray<uint8> chunk;
 	uint64 left = getChunk(name, begin, chunk);
 	replicateChunkServer(chunk, left <= 0, name);

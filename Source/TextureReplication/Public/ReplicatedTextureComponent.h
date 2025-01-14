@@ -146,7 +146,7 @@ private:
 
 	bool shouldReplicateTexture(const FString& name);
 
-	void compressTexture(const FString& name);
+	bool compressTexture(const FString& name);
 
 	void notifyQueueEmtpy();
 };
