@@ -21,8 +21,8 @@ class UReplicatedTextureComponent : public UActorComponent
 
 public:
 
-	const static uint64 maxChunkSize = 1024 * 30; // 30kb
-	const static uint64 maxBufferSize = 1024 * 1024 * 1.5; // 1.5 mb
+	const static uint64 maxChunkSize = 1024 * 50; 
+	const static uint64 maxBufferSize = 1024 * 500; 
 
 	static AReplicatedTexturesStorage* textureStorage;
 
@@ -149,7 +149,6 @@ private:
 	void compressTexture(const FString& name);
 
 	void notifyQueueEmtpy();
-
 };
 
 

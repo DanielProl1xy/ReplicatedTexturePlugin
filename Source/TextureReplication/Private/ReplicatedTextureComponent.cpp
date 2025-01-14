@@ -101,9 +101,6 @@ bool UReplicatedTextureComponent::ReplicateTexrure(UTexture2D* texture, const FS
 {
 	if (!shouldReplicateTexture(name)) return false;
 
-	if(GetNetMode() == NM_Client)
-		bAllJobsDone = false;
-
 	preReplicateTexture(texture, name);
 	beginReplicateTexture(name);
 
@@ -201,6 +198,7 @@ void UReplicatedTextureComponent::replicateTextureServer_Implementation(const FS
 	if (textureStorage->replicatedTextures.Contains(name) || namedQueue.Contains(name))
 	{
 		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded or in queue, skipping"), *name);
+
 		return;
 	}
 
