@@ -3,7 +3,6 @@
 
 #include "ReplicatedTextureComponent.h"
 #include "ImageUtils.h"
-#include "Compression/OodleDataCompressionUtil.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
@@ -107,13 +106,28 @@ bool UReplicatedTextureComponent::ReplicateTexrure(UTexture2D* texture, const FS
 	return true;
 }
 
-bool UReplicatedTextureComponent::ReplicateTexrureFUsingSourceImage(const FImage& sourceImage, UTexture2D* texture, const FString& name)
+bool UReplicatedTextureComponent::ReplicateTexrureFromFile(const FString& path, const FString& name)
 {
 	if (!shouldReplicateTexture(name)) return false;
 
+	FImage img;
+	if (!FImageUtils::LoadImage(*path, img))
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Failed to load image from file %s"), *path);
+		return false;
+	}
+
+	UTexture2D* texture = FImageUtils::CreateTexture2DFromImage(img);
+
+	if (!IsValid(texture))
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Failed to create texture from image %s"), *path);
+		return false;
+	}
+
 	preReplicateTexture(texture, name);
 	beginReplicateTexture(name);
-	beginReplicateSource(name, sourceImage);
+	beginReplicateSource(name, img);
 	
 	return true;
 }

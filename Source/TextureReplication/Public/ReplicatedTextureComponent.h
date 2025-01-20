@@ -69,7 +69,7 @@ public:
 	bool ReplicateTexrure(UTexture2D* texture, const FString& name);
 
 	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
-	bool ReplicateTexrureFUsingSourceImage(const FImage& sourceImage, UTexture2D* texture, const FString& name);
+	bool ReplicateTexrureFromFile(const FString& path, const FString& name);
 
 	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
 	const TArray<FString>& GetLoadedTexturesNames() const;
@@ -157,7 +157,3 @@ private:
 
 	void notifyQueueEmtpy();
 };
-
-
-// TODO: CancelReplicateTexture(name) - Disable replication of this texture 
-
