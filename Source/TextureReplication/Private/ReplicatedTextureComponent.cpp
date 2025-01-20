@@ -282,7 +282,7 @@ void UReplicatedTextureComponent::replicateTextureServer_Implementation(const FS
 {
 	if (textureStorage->replicatedTextures.Contains(name))
 	{
-		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded or in queue, skipping"), *name);
+		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded, skipping"), *name);
 		if (namedQueue.IsEmpty()) {
 			notifyQueueEmtpy();
 		}
@@ -441,8 +441,6 @@ void UReplicatedTextureComponent::replicateTextureToAll(const FString& name)
 	for (const AActor* pca : players)
 	{
 		const APlayerController* player = Cast<APlayerController>(pca);
-
-		if (player == GetOwner() || player->IsLocalPlayerController()) continue;
 
 		UReplicatedTextureComponent* repl = Cast<UReplicatedTextureComponent>(
 			player->GetComponentByClass(UReplicatedTextureComponent::StaticClass())
