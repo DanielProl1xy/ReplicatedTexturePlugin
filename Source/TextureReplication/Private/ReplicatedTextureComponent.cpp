@@ -283,9 +283,6 @@ void UReplicatedTextureComponent::replicateTextureServer_Implementation(const FS
 	if (textureStorage->replicatedTextures.Contains(name))
 	{
 		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded, skipping"), *name);
-		if (namedQueue.IsEmpty()) {
-			notifyQueueEmtpy();
-		}
 		return;
 	}
 
