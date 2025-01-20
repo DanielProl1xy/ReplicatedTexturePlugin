@@ -69,6 +69,9 @@ public:
 	bool ReplicateTexrure(UTexture2D* texture, const FString& name);
 
 	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
+	bool ReplicateTexrureFUsingSourceImage(const FImage& sourceImage, UTexture2D* texture, const FString& name);
+
+	UFUNCTION(BlueprintCallable, Category = "Texture Replication")
 	const TArray<FString>& GetLoadedTexturesNames() const;
 
 	// Returns texture by name if found and lodaed
@@ -142,9 +145,13 @@ private:
 
 	void beginReplicateTexture(const FString& name);
 
+	void beginReplicateSource(const FString& name, const FImage& source);
+
 	void postReplicateTexture(UTexture2D* texture, const FString& name);
 
 	bool shouldReplicateTexture(const FString& name);
+
+	bool compressImage(const FImage& image, const FString& name);
 
 	bool compressTexture(const FString& name);
 

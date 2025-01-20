@@ -107,6 +107,17 @@ bool UReplicatedTextureComponent::ReplicateTexrure(UTexture2D* texture, const FS
 	return true;
 }
 
+bool UReplicatedTextureComponent::ReplicateTexrureFUsingSourceImage(const FImage& sourceImage, UTexture2D* texture, const FString& name)
+{
+	if (!shouldReplicateTexture(name)) return false;
+
+	preReplicateTexture(texture, name);
+	beginReplicateTexture(name);
+	beginReplicateSource(name, sourceImage);
+	
+	return true;
+}
+
 bool UReplicatedTextureComponent::shouldReplicateTexture(const FString& name)
 {
 	if (GetNetMode() == NM_Standalone) return false;
@@ -159,6 +170,33 @@ void UReplicatedTextureComponent::beginReplicateTexture(const FString& name)
 	});
 }
 
+void UReplicatedTextureComponent::beginReplicateSource(const FString& name, const FImage& source)
+{
+	AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [name, source, this] {
+		bool succeed = compressImage(source, name);
+
+		AsyncTask(ENamedThreads::GameThread, [name, this, succeed] {
+			if (!succeed)
+			{
+				// If failed to compress - abord replication
+				textureStorage->replicatedTextures.Remove(name);
+				textureStorage->loadedTexturesNames.RemoveSingleSwap(name);
+				return;
+			}
+
+			if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
+			{
+				replicateTextureToAll(name);
+			}
+			else
+			{
+				replicateTextureServer(name);
+			}
+			});
+		});
+}
+
+
 void UReplicatedTextureComponent::postReplicateTexture(UTexture2D* texture, const FString& name)
 {
 	textureStorage->replicatedTextures.Add(name, texture);
@@ -179,6 +217,21 @@ void UReplicatedTextureComponent::postReplicateTexture(UTexture2D* texture, cons
 	{
 		notifyQueueEmtpy();
 	}
+}
+
+bool UReplicatedTextureComponent::compressImage(const FImage& image, const FString& name)
+{
+	TArray64<uint8> buffer;
+	if (!FImageUtils::CompressImage(buffer, TEXT("png"), image, -5))
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Couldn't compress image \"%s\""), *name);
+		return false;
+	}
+
+	UE_LOG(LogReplicaetdTexture, Log, TEXT("Texture \"%s\" compressed size = %d"), *name, buffer.Num());
+
+	textureStorage->textureBuffers.Add(name, (TArray<uint8>)buffer);
+	return true;
 }
 
 
