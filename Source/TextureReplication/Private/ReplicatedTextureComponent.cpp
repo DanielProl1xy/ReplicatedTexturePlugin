@@ -126,7 +126,6 @@ bool UReplicatedTextureComponent::ReplicateTexrureFromFile(const FString& path, 
 	}
 
 	preReplicateTexture(texture, name);
-	beginReplicateTexture(name);
 	beginReplicateSource(name, img);
 	
 	return true;
