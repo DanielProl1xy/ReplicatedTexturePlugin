@@ -506,6 +506,11 @@ void UReplicatedTextureComponent::notifyQueueEmtpy()
 	// Server finished downloading
 	else
 	{
+		const APlayerController* player = Cast<APlayerController>(GetOwner());
+
+		if (player->IsLocalPlayerController())
+			bClientJobDone = true;
+
 		bAllJobsDone = bClientJobDone;
 		OnQueueEmpty.Broadcast();
 		RepNotifyAllJobDone();
