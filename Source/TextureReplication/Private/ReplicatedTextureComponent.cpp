@@ -280,29 +280,34 @@ bool UReplicatedTextureComponent::replicateTextureServer_Validate(const FString&
 
 void UReplicatedTextureComponent::replicateTextureServer_Implementation(const FString& name)
 {
-	if (textureStorage->replicatedTextures.Contains(name) || namedQueue.Contains(name))
+	if (textureStorage->replicatedTextures.Contains(name))
 	{
 		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded or in queue, skipping"), *name);
-
+		if (namedQueue.IsEmpty()) {
+			notifyQueueEmtpy();
+		}
 		return;
 	}
 
 	bAllJobsDone = false;
 
-	namedQueue.Add(name);
+	namedQueue.AddUnique(name);
 
 	UE_LOG(LogReplicaetdTexture, Log, TEXT("Added texture \"%s\" for replication queue"), *name);
 }
 
 void UReplicatedTextureComponent::replicateTextureOwner_Implementation(const FString& name)
 {
-	if (textureStorage->replicatedTextures.Find(name) != nullptr || namedQueue.Contains(name))
+	if (textureStorage->replicatedTextures.Contains(name))
 	{
-		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded or in queue, skipping"), *name);
+		UE_LOG(LogReplicaetdTexture, Warning, TEXT("Texture with name \"%s\" is already loaded, skipping"), *name);
+		if (namedQueue.IsEmpty()) {
+			notifyQueueEmtpy();
+		}
 		return;
 	}
 
-	namedQueue.Add(name);
+	namedQueue.AddUnique(name);
 
 	UE_LOG(LogReplicaetdTexture, Log, TEXT("Added texture \"%s\" for replication queue"), *name);
 }
