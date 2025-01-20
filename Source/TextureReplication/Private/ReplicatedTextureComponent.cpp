@@ -465,6 +465,11 @@ const TArray<FString>& UReplicatedTextureComponent::GetLoadedTexturesNames() con
 
 const UTexture2D* UReplicatedTextureComponent:: FindTexture(const FString& name) const
 {
+	if (!IsValid(textureStorage))
+	{
+		UE_LOG(LogReplicaetdTexture, Error, TEXT("Tried to access Textures Storage, but got null."));
+		return nullptr;
+	}
 	const TObjectPtr<UTexture2D>* texture = textureStorage->replicatedTextures.Find(name);
 
 	if (texture == nullptr)
