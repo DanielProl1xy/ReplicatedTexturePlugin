@@ -13,7 +13,7 @@ AReplicatedTexturesStorage* UReplicatedTextureComponent::textureStorage = nullpt
 UReplicatedTextureComponent::UReplicatedTextureComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	SetIsReplicated(true);
+	SetIsReplicatedByDefault(true);
 	isDownloading = false;
 	chunkReady = true;
 	bClientJobDone = true;
